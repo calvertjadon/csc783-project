@@ -137,3 +137,6 @@ $RECYCLE.BIN/
 
 .~lock*
 *.docx
+
+# raw & derived data
+/data/US_Accidents_March23.csv

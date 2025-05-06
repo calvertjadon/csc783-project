@@ -8,5 +8,4 @@ This repository bundles the **US Accidents (2016 – 2023)** dataset:
 > https://doi.org/10.34740/KAGGLE/DS/199387  
 > Licence: Creative Commons **CC BY‑NC‑SA 4.0**
 
-The dataset is redistributed here **solely for non‑commercial research and educational purposes**, in compliance with the licence above. If you reuse it, you must provide the same attribution and keep it under CC BY‑NC‑SA 4.0.
-
+This repository does **not** store the raw dataset because the file exceeds GitHub’s 100 MB limit.  
