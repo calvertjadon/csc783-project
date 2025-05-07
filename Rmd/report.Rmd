@@ -1,0 +1,29 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r, global_options, include=FALSE}
+knitr::opts_chunk$set(message=FALSE, warning=FALSE, tidy.opts=list(width.cutoff=60)) 
+suppressPackageStartupMessages(library(ggplot2))
+```
+
+```{r, echo=FALSE}
+source("R/test.R")
+plot1
+```
+
+# time-based trends
+
+- time-series plot showing accident frequency over time, and maybe how this changes year to year 
+- bar chart showing what time of day the most accidents occur
+- bar chart showing whether or not accidents occur more frequently on certain days of the week, day of the month, month of the year, etc
+- not sure what kind of chart, but determine whether accident frequency/severity is impacted by holidays
+
+# geographic-based trends
+
+- a heatmap showing which states have the most accidents
+- for the best/worst states, determine whether environmental factors have an impact
+- weather vs road conditions severity ?
