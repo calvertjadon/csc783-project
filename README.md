@@ -1,8 +1,11 @@
 # CSC 783 - Term Project
 
 Title: Visualizing Trends in Car Accidents in the US from 2016 to 2023
+
 Course: CSC 783 - Data Visualization
+
 Team: Dominique Kellam & Jadon Calvert
+
 Instructor: Dr. Eum Mi Kim
 
 
