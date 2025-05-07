@@ -138,5 +138,5 @@ $RECYCLE.BIN/
 .~lock*
 *.docx
 
-# raw & derived data
+# raw data
 /data/raw_data/**
