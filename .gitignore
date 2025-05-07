@@ -139,4 +139,4 @@ $RECYCLE.BIN/
 *.docx
 
 # raw & derived data
-/data/US_Accidents_March23.csv
+/data/raw_data/**
