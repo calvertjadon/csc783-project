@@ -139,4 +139,4 @@ $RECYCLE.BIN/
 *.docx
 
 # raw data
-/data/raw_data/**
+/data/**
