@@ -1,11 +1,14 @@
-library(ggplot)
+library(ggplot2)
 library(plotly)
 library(readr)
+library(here)
+library(dplyr)
 
 if(!exists("accidents")) {
   #accidents <- read.csv("data/raw_data/US_Accidents_March23.csv")
-  accidents <- read_csv("data/raw_data/US_Accidents_March23.csv",
-                        lazy = TRUE)
+  accidents <- read_rds(
+    here("data", "processed_data", "US_Accidents_March23.rds")
+  )
 }
 
 
@@ -27,10 +30,10 @@ severity_counts <- accidents %>%
 severity_counts
 
 severity_counts_p <- ggplotly(
-  ggplot(data = severity_counts, aes(x = sevg, y = n, fill = sevg)) +
+  ggplot(data = severity_counts, aes(x = factor(sevg), y = n, fill = factor(sevg))) +
     geom_col() +
     scale_y_continuous(labels = scales::comma) +
-    geom_text(aes(label = scales::comma(n))) +
+    geom_text(aes(label = scales::comma(n)), vjust = 1.5) +
     labs(
       title = "Accident Counts by Severity (2016 - 2023)",
       x = "Severity",
