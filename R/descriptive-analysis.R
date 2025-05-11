@@ -3,43 +3,57 @@ library(plotly)
 library(readr)
 library(here)
 library(dplyr)
+library(corrplot)
+library(stringr)
 
-if(!exists("accidents")) {
+if(!exists("acc")) {
   #accidents <- read.csv("data/raw_data/US_Accidents_March23.csv")
-  accidents <- read_rds(
+  acc <- read_rds(
     here("data", "processed_data", "US_Accidents_March23.rds")
   )
 }
 
-
-head(accidents)
-dim(accidents)
-str(accidents)
-summary(accidents)
-
-table(is.na(accidents$Severity))
-
-accidents <- accidents %>% 
-  mutate(sevg = ifelse(Severity == 1, "least severe",
-                       ifelse(Severity == 2, "less severe",
-                              ifelse(Severity == 3, "more severe", "most severe"))))
-
-severity_counts <- accidents %>% 
+# ACCIDENT SEVERITY COUNTS
+sev_count <- acc %>% 
   count(sevg)
+sev_count
 
-severity_counts
+p <- ggplot(sev_count, aes(x = sevg, y = n)) +
+  geom_col() + 
+  scale_y_continuous(labels = scales::comma) +
+  labs(
+    title = "Accident Counts by Severity (2016 - 2023)",
+    x = "Severity",
+    y = "Number of Accidents"
+  )
+sev_count_p <- ggplotly(p)
+sev_count_p
 
-severity_counts_p <- ggplotly(
-  ggplot(data = severity_counts, aes(x = factor(sevg), y = n, fill = factor(sevg))) +
-    geom_col() +
-    scale_y_continuous(labels = scales::comma) +
-    geom_text(aes(label = scales::comma(n)), vjust = 1.5) +
-    labs(
-      title = "Accident Counts by Severity (2016 - 2023)",
-      x = "Severity",
-      y = "Number of Accidents"
-    ),
-  tooltip = c("x", "y")
-)
+# ACCIDENTS PER MONTH
+acc_month <- acc %>% 
+  count(year_, month_) %>% 
+  mutate(
+    # convert each date to the first of the respective month
+    month_year = str_c(year_, "-", str_pad(month_, 2, side = "left", pad = "0"), "-01"),
+    d = as.Date(month_year)
+  )
+acc_month
 
-severity_counts_p
+p <- ggplot(acc_month, aes(x = d, y = n)) + 
+  geom_line() +
+  scale_y_continuous(labels = scales::comma) + 
+  labs(x = NULL, y = "Accidents / month")
+acc_month_p <- ggplotly(p)
+acc_month_p
+
+# ACCIDENTS PER HOUR
+acc_hour <- acc %>% 
+  count(hour_) 
+acc_hour
+
+p <- ggplot(acc_hour, aes(x = hour_, y = n)) +
+  geom_line() +
+  scale_y_continuous(labels = scales::comma) +
+  scale_x_continuous(breaks = seq(0, 23, by = 1))
+acc_hour_p <- ggplotly(p)
+acc_hour_p
