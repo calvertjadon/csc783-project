@@ -7,7 +7,7 @@ library(lubridate)
 library(corrplot)
 
 if (!exists("acc")) {
-  #accidents <- read.csv("data/raw_data/US_Accidents_March23.csv")
+  # accidents <- read.csv("data/raw_data/US_Accidents_March23.csv")
   acc <- read_rds(here("data", "processed_data", "US_Accidents_March23.rds"))
 }
 
@@ -15,24 +15,25 @@ if (!exists("acc")) {
 x <- acc %>%
   group_by(State, City, date_) %>%
   summarize(
-    n = n(),
-    mean_severity = mean(Severity),
+    n_acc = n(),
+    mean_sev = mean(Severity),
     mean_precip = mean(`Precipitation(in)`),
     mean_temp = mean(`Temperature(F)`),
     precip_day = mean_precip > 0,
     hot_day = mean_temp > 80,
     cold_day = mean_temp < 50,
     .groups = "drop"
-  ) %>%
-  na.omit()
+  )
 
-daily <- acc %>%
+daily <- x %>%
   group_by(date_) %>%
   summarise(
-    mean_sev = mean(Severity),
-    n_acc = n(),
-    mean_temp = mean(`Temperature(F)`),
-    mean_precip = mean(`Precipitation(in)`),
+    # https://en.wikipedia.org/wiki/Weighted_arithmetic_mean
+    # https://www.rdocumentation.org/packages/stats/versions/3.6.2/topics/weighted.mean
+    mean_sev = weighted.mean(mean_sev, w = n_acc),
+    mean_temp = weighted.mean(mean_temp, w = n_acc),
+    mean_precip = weighted.mean(mean_precip, w = n_acc),
+    n_acc = sum(n_acc),
     .groups = "drop"
   )
 
@@ -63,7 +64,7 @@ ggplotly(p)
 
 str(x)
 
-x_cor <- cor(x %>% select(n, mean_severity, mean_precip, mean_temp))
+x_cor <- cor(x %>% select(n_acc, mean_sev, mean_precip, mean_temp))
 corrplot(
   x_cor,
   type = "lower",
@@ -72,10 +73,10 @@ corrplot(
   tl.srt = 45
 )
 
-t.test(data = x, mean_severity ~ precip_day, var.eq = T)
-t.test(data = x, mean_severity ~ hot_day, var.eq = T)
-t.test(data = x, mean_severity ~ cold_day, var.eq = T)
+t.test(data = x, mean_severity ~ precip_day)
+t.test(data = x, mean_severity ~ hot_day)
+t.test(data = x, mean_severity ~ cold_day)
 
-t.test(data = x, n ~ precip_day, var.eq = T)
-t.test(data = x, n ~ hot_day, var.eq = T)
-t.test(data = z, n ~ cold_day, var.eq = T)
+t.test(data = x, n ~ precip_day)
+t.test(data = x, n ~ hot_day)
+t.test(data = x, n ~ cold_day)

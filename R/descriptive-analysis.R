@@ -7,7 +7,7 @@ library(corrplot)
 library(stringr)
 
 if (!exists("acc")) {
-  #accidents <- read.csv("data/raw_data/US_Accidents_March23.csv")
+  # accidents <- read.csv("data/raw_data/US_Accidents_March23.csv")
   acc <- read_rds(here("data", "processed_data", "US_Accidents_March23.rds"))
 }
 
@@ -19,7 +19,11 @@ sev_count
 p <- ggplot(sev_count, aes(x = sevg, y = n)) +
   geom_col() +
   scale_y_continuous(labels = scales::comma) +
-  labs(title = "Accident Counts by Severity (2016 - 2023)", x = "Severity", y = "Number of Accidents")
+  labs(
+    title = "Accident Counts by Severity (2016 - 2023)",
+    x = "Severity",
+    y = "Number of Accidents"
+  )
 sev_count_p <- ggplotly(p)
 sev_count_p
 
@@ -29,7 +33,8 @@ acc_month <- acc %>%
   mutate(
     # convert each date to the first of the respective month
     month_year = str_c(year_, "-", str_pad(
-      month_, 2, side = "left", pad = "0"
+      month_, 2,
+      side = "left", pad = "0"
     ), "-01"),
     d = as.Date(month_year)
   )
@@ -37,6 +42,7 @@ acc_month
 
 p <- ggplot(acc_month, aes(x = d, y = n)) +
   geom_line() +
+  geom_point(size = 0.5) +
   scale_y_continuous(labels = scales::comma) +
   labs(x = NULL, y = "Accidents / month")
 acc_month_p <- ggplotly(p)
@@ -49,7 +55,19 @@ acc_hour
 
 p <- ggplot(acc_hour, aes(x = hour_, y = n)) +
   geom_line() +
+  geom_point(size = 0.5) +
   scale_y_continuous(labels = scales::comma) +
   scale_x_continuous(breaks = seq(0, 23, by = 1))
 acc_hour_p <- ggplotly(p)
 acc_hour_p
+
+EXPORT <- list(
+  summary_ = summary(acc),
+  str_ = acc %>% summary.default(),
+  head_ = head(acc),
+  dim_ = dim(acc),
+  sev_count_p = sev_count_p
+  # acc_month_p = acc_month_p,
+  # acc_hour_p = acc_hour_p
+)
+write_rds(EXPORT, "data/descriptive.rds")

@@ -11,18 +11,292 @@ suppressPackageStartupMessages(library(ggplot2))
 ```
 
 ```{r, echo=FALSE}
-source("R/test.R")
-plot1
+library(readr)
+library(here)
+library(dplyr)
+library(stringr)
+library(lubridate)
+library(ggplot2)
+library(plotly)
+library(ggiraphExtra)
+library(maps)
+library(mapproj)
 ```
 
-# time-based trends
+# U.S. Car Accidents (2016-2023)
+
+## Import and Clean Data
+
+```{r}
+if (!exists("accidents_raw")) {
+  accidents_raw <- read_csv(here("data", "raw_data", "US_Accidents_March23.csv"), lazy = FALSE)
+}
+
+acc <- accidents_raw
+
+# cleanup
+acc <- acc %>%
+  filter(between(`Temperature(F)`, -60, 130)) %>%
+  mutate(
+    date_ = date(Start_Time),
+    year_ = year(Start_Time),
+    month_ = month(Start_Time),
+    hour_ = hour(Start_Time),
+    `Precipitation(in)` = coalesce(`Precipitation(in)`, 0),
+    any_precip = `Precipitation(in)` > 0,
+    Weather_Condition = coalesce(Weather_Condition, "Unknown"),
+    `Temperature(F)` = coalesce(`Temperature(F)`, mean(`Temperature(F)`, na.rm = T))
+  )
+
+# augmentation
+state_lookup <- tibble(State  = state.abb, state_name  = str_to_title(state.name))
+
+acc <- acc %>%
+  mutate(
+    sevg = case_when(
+      Severity == 1 ~ "least severe",
+      Severity == 2 ~ "less severe",
+      Severity == 3 ~ "more severe",
+      TRUE ~ "most severe"
+    )
+  ) %>%
+  inner_join(state_lookup, by = "State")
+```
+
+## Descriptive Analysis
+
+```{r, echo=FALSE}
+library(readr)
+desc <- read_rds("data/descriptive.rds")
+
+```
+
+```{r}
+summary(acc)
+dim(acc)
+str(acc)
+head(acc)
+```
+
+```{r}
+# ACCIDENT SEVERITY COUNTS
+sev_count <- acc %>%
+  count(sevg)
+sev_count
+
+p <- ggplot(sev_count, aes(x = sevg, y = n)) +
+  geom_col() +
+  scale_y_continuous(labels = scales::comma) +
+  labs(
+    title = "Accident Counts by Severity (2016 - 2023)",
+    x = "Severity",
+    y = "Number of Accidents"
+  )
+ggplotly(p)
+```
+
+## time-based trends
 
 - time-series plot showing accident frequency over time, and maybe how this changes year to year 
 - bar chart showing what time of day the most accidents occur
 - bar chart showing whether or not accidents occur more frequently on certain days of the week, day of the month, month of the year, etc
 - not sure what kind of chart, but determine whether accident frequency/severity is impacted by holidays
 
-# geographic-based trends
+
+## Geographic Trends
+
+```{r}
+# https://www.census.gov/data/tables/time-series/demo/popest/2020s-state-detail.html
+est_pop_state_2023 <- data.frame(
+  state_name = c(
+    "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado",
+    "Connecticut", "Delaware", "District of Columbia", "Florida", "Georgia",
+    "Hawaii", "Idaho", "Illinois", "Indiana", "Iowa", "Kansas", "Kentucky",
+    "Louisiana", "Maine", "Maryland", "Massachusetts", "Michigan", "Minnesota",
+    "Mississippi", "Missouri", "Montana", "Nebraska", "Nevada", "New Hampshire",
+    "New Jersey", "New Mexico", "New York", "North Carolina", "North Dakota",
+    "Ohio", "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island",
+    "South Carolina", "South Dakota", "Tennessee", "Texas", "Utah", "Vermont",
+    "Virginia", "Washington", "West Virginia", "Wisconsin", "Wyoming"
+  ),
+  pop = c(
+    5108468, 733406, 7431344, 3067732, 38965193, 5877610, 3617176, 1031890,
+    678972, 22610726, 11029227, 1435138, 1964726, 12549689, 6862199, 3207004,
+    2940546, 4526154, 4573749, 1395722, 6180253, 7001399, 10037261, 5737915,
+    2939690, 6196156, 1132812, 1978379, 3194176, 1402054, 9290841, 2114371,
+    19571216, 10835491, 783926, 11785935, 4053824, 4233358, 12961683, 1095962,
+    5373555, 919318, 7126489, 30503301, 3417734, 647464, 8715698, 7812880,
+    1770071, 5910955, 584057
+  )
+)
+
+states_map <- map_data("state")
+
+# make state names uppercase so they look better on the map
+states_map$region <- str_to_title(states_map$region)
+
+acc_state <- acc %>%
+  group_by(State, state_name) %>%
+  summarise(
+    mean_sev = mean(Severity),
+    n_acc = n(),
+    groups = "drop"
+  ) %>% 
+  left_join(est_pop_state_2023, by = "state_name") %>%
+  mutate(
+    acc_per_100k = 100000 * n_acc / pop
+  )
+head(acc_state %>% arrange(desc(acc_per_100k)))
+```
+
+### Average Severity by State
+
+```{r}
+mean_sev_state_bar <- ggplot(
+  data = acc_state,
+  aes(
+    x = reorder(State, -mean_sev),
+    y = mean_sev
+  )
+) +
+  geom_col(position = "dodge") +
+  coord_flip() +
+  labs(
+    title = "Average Accident Severity by State (2016 – 2023)",
+    x = NULL,
+    y = "Mean Severity (1 = least, 4 = most)"
+  )
+
+ggplotly(mean_sev_state_bar, tooltip = c("x", "y"))
+```
+```{r}
+mean_sev_state_map <- ggChoropleth(
+  data = acc_state,
+  aes(fill = mean_sev, map_id = state_name),
+  map = states_map,
+  interactive = T,
+  title = "Average Accident Severity by State (2016 – 2023)"
+)
+mean_sev_state_map
+```
+
+
+
+### Total Accidents per State
+
+```{r}
+n_acc_state_map <- ggChoropleth(
+  data = acc_state,
+  aes(fill = acc_per_100k, map_id = state_name),
+  map = states_map,
+  interactive = T,
+  title = "Total Accidents Per 100K Residents",
+)
+n_acc_state_map
+```
+
+## Environmental Trends
+
+```{r eval=FALSE, include=FALSE}
+mean_temp_state_map <- ggChoropleth(
+  data = acc_state,
+  aes(fill = mean_temp, map_id = state_name),
+  map = states_map,
+  interactive = T
+)
+meanseverity_state_p3
+
+state_cor <- acc_state_day %>%
+  group_by(State) %>%
+  summarise(
+    r = cor(mean_temp, n_acc, use = "pair"),
+    .groups = "drop"
+  ) %>%
+  mutate(state_name = state.name[match(State, state.abb)], map_id = state_name) %>%
+  filter(!is.na(r))
+
+ggChoropleth(
+  data = state_cor,
+  aes(fill = r, map_id = state_name),
+  map = states_map,
+  interactive = TRUE,
+  title = "Correlation Between Temperature and State"
+)
+
+# we need to group be city because we can't assume that the weather will be the
+#    same across the entire state
+acc_state_day <- acc %>%
+  group_by(State, City, date_) %>%
+  summarize(
+    n_acc = n(),
+    mean_sev = mean(Severity),
+    mean_precip = mean(`Precipitation(in)`),
+    mean_temp = mean(`Temperature(F)`),
+    precip_day = mean_precip > 0,
+    hot_day = mean_temp > 80,
+    cold_day = mean_temp < 50,
+    .groups = "drop"
+  )
+
+acc_day <- acc_state_day %>%
+  group_by(date_) %>%
+  summarise(
+    # https://en.wikipedia.org/wiki/Weighted_arithmetic_mean
+    # https://www.rdocumentation.org/packages/stats/versions/3.6.2/topics/weighted.mean
+    mean_sev = weighted.mean(mean_sev, w = n_acc),
+    mean_temp = weighted.mean(mean_temp, w = n_acc),
+    mean_precip = weighted.mean(mean_precip, w = n_acc),
+    n_acc = sum(n_acc),
+    .groups = "drop"
+  )
+
+# create 10 degree temp range "buckets" and group accidents by temp range 
+#    (-20, -10], (-10, 0], (0, 10], etc.
+temp_ranges <- acc_day %>%
+  mutate(temp_range = cut(mean_temp, breaks = seq(-20, 120, 10))) %>%
+  group_by(temp_range) %>%
+  summarise(
+    mean_n = mean(n_acc),
+    mean_sev = mean(mean_sev),
+    .groups = "drop"
+  ) %>%
+  filter(!is.na(temp_range))
+temp_ranges
+
+# we can then plot the average number of accidents per day in each range
+p <- ggplot(temp_ranges, aes(temp_range, mean_n, group = 1)) +
+  geom_line() +
+  geom_point() +
+  labs(x = "Temperature range (F)", y = "Accidents per day")
+ggplotly(p)
+
+# mean severity per day by temp
+p <- ggplot(temp_ranges, aes(temp_range, mean_sev, group = 1)) +
+  geom_line() +
+  geom_point() +
+  labs(x = "Temperature range (F)", y = "Mean severity / day")
+ggplotly(p)
+
+str(x)
+
+x_cor <- cor(x %>% select(n_acc, mean_sev, mean_precip, mean_temp))
+corrplot(
+  x_cor,
+  type = "lower",
+  addCoef.col = "black",
+  tl.col = "black",
+  tl.srt = 45
+)
+
+t.test(data = x, mean_severity ~ precip_day)
+t.test(data = x, mean_severity ~ hot_day)
+t.test(data = x, mean_severity ~ cold_day)
+
+t.test(data = x, n ~ precip_day)
+t.test(data = x, n ~ hot_day)
+t.test(data = x, n ~ cold_day)
+
+```
 
 - a heatmap showing which states have the most accidents
 - for the best/worst states, determine whether environmental factors have an impact

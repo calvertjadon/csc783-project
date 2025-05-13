@@ -16,5 +16,14 @@ references:
         given-names: Sobhan
     doi: "10.34740/KAGGLE/DS/199387"
     license: "CC-BY-NC-SA-4.0"
+  - type: dataset
+    id: state-pop-2023
+    authors:
+      - family-names: United States Census Bureau
+    title: "Vintage 2023 State Population Totals: 2020-2023 (Table ST-EST2023-POP)"
+    publisher: U.S. Census Bureau
+    url: "https://www.census.gov/data/tables/time-series/demo/popest/2020s-state-detail.html"
+    accessed: "2025-05-12"
+    license: "Public domain (17 U.S.C. § 105)"
 license: "MIT"
 
