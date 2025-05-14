@@ -28,13 +28,15 @@ acc <- acc %>%
   filter(between(`Temperature(F)`, -60, 130)) %>%
   mutate(
     date_ = date(Start_Time),
-    year_ = year(Start_Time),
-    month_ = month(Start_Time),
-    hour_ = hour(Start_Time),
-    `Precipitation(in)` = coalesce(`Precipitation(in)`, 0),
-    any_precip = `Precipitation(in)` > 0,
-    Weather_Condition = coalesce(Weather_Condition, "Unknown"),
-    `Temperature(F)` = coalesce(`Temperature(F)`, mean(`Temperature(F)`, na.rm = T))
+    year = year(Start_Time),
+    month = month(Start_Time),
+    hour = hour(Start_Time),
+    precipitation = coalesce(`Precipitation(in)`, 0),
+    any_precip = precipitation > 0,
+    weather = coalesce(Weather_Condition, "Unknown"),
+    temperature = coalesce(`Temperature(F)`, mean(`Temperature(F)`, na.rm = TRUE)),
+    visibility = `Visibility(mi)`,
+    wind_chill = `Wind_Chill(F)`
   )
 str(acc)
 summary(acc)
@@ -58,3 +60,6 @@ acc <- acc %>%
 str(acc %>% select(State, state_name))
 
 # write_rds(acc, here("data", "processed_data", "US_Accidents_March23.rds"))
+
+# Make available as `accidents` for scripts
+accidents <- acc
