@@ -1,12 +1,12 @@
 ---
-title: "R Notebook"
+title: "U.S. Car Accidents (2016-2023)"
 output:
   html_document:
     df_print: paged
 ---
 
 ```{r, global_options, include=FALSE}
-knitr::opts_chunk$set(message=FALSE, warning=FALSE, tidy.opts=list(width.cutoff=60)) 
+knitr::opts_chunk$set(message = FALSE, warning = FALSE, tidy.opts = list(width.cutoff = 60))
 suppressPackageStartupMessages(library(ggplot2))
 ```
 
@@ -23,13 +23,12 @@ library(maps)
 library(mapproj)
 ```
 
-# U.S. Car Accidents (2016-2023)
-
-## Import and Clean Data
-
-```{r}
+```{r, echo=FALSE}
+# -- Import and Clean Data --
 if (!exists("accidents_raw")) {
-  accidents_raw <- read_csv(here("data", "raw_data", "US_Accidents_March23.csv"), lazy = FALSE)
+  accidents_raw <- read_csv(here("data", "raw_data", "US_Accidents_March23.csv"),
+    lazy = FALSE
+  )
 }
 
 acc <- accidents_raw
@@ -45,11 +44,17 @@ acc <- acc %>%
     `Precipitation(in)` = coalesce(`Precipitation(in)`, 0),
     any_precip = `Precipitation(in)` > 0,
     Weather_Condition = coalesce(Weather_Condition, "Unknown"),
-    `Temperature(F)` = coalesce(`Temperature(F)`, mean(`Temperature(F)`, na.rm = T))
+    `Temperature(F)` = coalesce(
+      `Temperature(F)`,
+      mean(`Temperature(F)`, na.rm = T)
+    )
   )
 
 # augmentation
-state_lookup <- tibble(State  = state.abb, state_name  = str_to_title(state.name))
+state_lookup <- data.frame(
+  State = state.abb,
+  state_name = str_to_title(state.name)
+)
 
 acc <- acc %>%
   mutate(
@@ -63,26 +68,28 @@ acc <- acc %>%
   inner_join(state_lookup, by = "State")
 ```
 
-## Descriptive Analysis
+# Introduction
+
+# Descriptive Analysis
 
 ```{r, echo=FALSE}
-library(readr)
-desc <- read_rds("data/descriptive.rds")
-
+# summary(acc)
+# dim(acc)
+# str(acc)
+# head(acc)
 ```
 
-```{r}
-summary(acc)
-dim(acc)
-str(acc)
-head(acc)
-```
+The raw dataset contains `r scales::comma(nrow(accidents_raw))` observations
+(rows) of `r ncol(accidents_raw)` variables (columns).
 
-```{r}
+After data preparation and cleaning, the dataset contains 
+`r scales::comma(nrow(acc))` observations (rows) of `r ncol(acc)` variables 
+(columns).
+
+```{r, echo=FALSE}
 # ACCIDENT SEVERITY COUNTS
 sev_count <- acc %>%
   count(sevg)
-sev_count
 
 p <- ggplot(sev_count, aes(x = sevg, y = n)) +
   geom_col() +
@@ -92,8 +99,20 @@ p <- ggplot(sev_count, aes(x = sevg, y = n)) +
     x = "Severity",
     y = "Number of Accidents"
   )
+
 ggplotly(p)
+sev_count
 ```
+
+The author defines severity as "the impact on traffic." Low severity accidents
+would have a minimal effect on traffic whereas high severity accidents would
+have a significant impact on traffic.
+
+We can observe that the majority of accidents that took place between 2016 and 
+2023 were categorized as 
+"`r (sev_count %>% arrange(desc(n)) %>% head(1))$sevg`," accounting
+for `r scales::comma((sev_count %>% arrange(desc(n)) %>% head(1))$n)` of the
+total `r scales::comma(nrow(acc))` accidents.
 
 ## time-based trends
 
@@ -105,7 +124,7 @@ ggplotly(p)
 
 ## Geographic Trends
 
-```{r}
+```{r, echo=FALSE}
 # https://www.census.gov/data/tables/time-series/demo/popest/2020s-state-detail.html
 est_pop_state_2023 <- data.frame(
   state_name = c(
@@ -140,18 +159,57 @@ acc_state <- acc %>%
   summarise(
     mean_sev = mean(Severity),
     n_acc = n(),
-    groups = "drop"
-  ) %>% 
+    .groups = "drop"
+  ) %>%
   left_join(est_pop_state_2023, by = "state_name") %>%
   mutate(
     acc_per_100k = 100000 * n_acc / pop
-  )
-head(acc_state %>% arrange(desc(acc_per_100k)))
+  ) %>% 
+  ungroup()
 ```
+
+### Total Accidents per State
+
+```{r, echo=FALSE}
+acc_state_bar <- ggplot(
+  data = acc_state,
+  aes(
+    x = reorder(State, -acc_per_100k),
+    y = acc_per_100k
+  )
+) +
+  geom_col(position = "dodge") +
+  coord_flip() +
+  labs(
+    title = "Total Accidents Per 100K by State (2016 – 2023)",
+    x = NULL,
+    y = "Accidents Per 100K"
+  )
+
+n_acc_state_map <- ggChoropleth(
+  data = acc_state,
+  aes(fill = acc_per_100k, map_id = state_name),
+  map = states_map,
+  interactive = T,
+  title = "Total Accidents Per 100K Residents",
+)
+
+ggplotly(acc_state_bar, tooltip = c("x", "y"))
+n_acc_state_map
+head(acc_state %>%
+       arrange(desc(acc_per_100k)) %>%
+       select(state_name, acc_per_100k) %>% 
+       mutate(acc_per_100k = scales::comma(acc_per_100k, accuracy = 0.01)),
+     5)
+```
+
+We can observe that, when adjusted for population, the following states: 
+`r str_flatten_comma(head((acc_state %>% arrange(desc(acc_per_100k))), 5)$state_name)`, 
+had the most accidents from 2016 to 2023.
 
 ### Average Severity by State
 
-```{r}
+```{r, echo=FALSE}
 mean_sev_state_bar <- ggplot(
   data = acc_state,
   aes(
@@ -167,9 +225,6 @@ mean_sev_state_bar <- ggplot(
     y = "Mean Severity (1 = least, 4 = most)"
   )
 
-ggplotly(mean_sev_state_bar, tooltip = c("x", "y"))
-```
-```{r}
 mean_sev_state_map <- ggChoropleth(
   data = acc_state,
   aes(fill = mean_sev, map_id = state_name),
@@ -177,23 +232,21 @@ mean_sev_state_map <- ggChoropleth(
   interactive = T,
   title = "Average Accident Severity by State (2016 – 2023)"
 )
+
+ggplotly(mean_sev_state_bar, tooltip = c("x", "y"))
 mean_sev_state_map
+head(acc_state %>%
+       arrange(desc(mean_sev)) %>%
+       select(state_name, mean_sev) %>%
+       mutate(mean_sev = round(mean_sev, 2)), 5)
 ```
 
-
-
-### Total Accidents per State
-
-```{r}
-n_acc_state_map <- ggChoropleth(
-  data = acc_state,
-  aes(fill = acc_per_100k, map_id = state_name),
-  map = states_map,
-  interactive = T,
-  title = "Total Accidents Per 100K Residents",
-)
-n_acc_state_map
-```
+While South Carolina had the most accidents per capita, the average severity was
+one of the lowest of all the states. The states that had the worst average
+severity were Georgia, Wisconsin, Rhode Island, Kentucky, and Colorado. While
+some states had a higher average severity than others, the largest difference in
+average severity was only 
+`r round(max(acc_state$mean_sev)-min(acc_state$mean_sev), 2)`. 
 
 ## Environmental Trends
 
@@ -250,7 +303,7 @@ acc_day <- acc_state_day %>%
     .groups = "drop"
   )
 
-# create 10 degree temp range "buckets" and group accidents by temp range 
+# create 10 degree temp range "buckets" and group accidents by temp range
 #    (-20, -10], (-10, 0], (0, 10], etc.
 temp_ranges <- acc_day %>%
   mutate(temp_range = cut(mean_temp, breaks = seq(-20, 120, 10))) %>%
@@ -295,9 +348,11 @@ t.test(data = x, mean_severity ~ cold_day)
 t.test(data = x, n ~ precip_day)
 t.test(data = x, n ~ hot_day)
 t.test(data = x, n ~ cold_day)
-
 ```
 
 - a heatmap showing which states have the most accidents
 - for the best/worst states, determine whether environmental factors have an impact
 - weather vs road conditions severity ?
+
+## Statistical Analysis
+
