@@ -159,6 +159,7 @@ acc_state <- acc %>%
   summarise(
     mean_sev = mean(Severity),
     n_acc = n(),
+    mean_temp = mean(`Temperature(F)`),
     .groups = "drop"
   ) %>%
   left_join(est_pop_state_2023, by = "state_name") %>%
@@ -255,33 +256,23 @@ average severity was only
 
 ## Environmental Trends
 
-```{r eval=FALSE, include=FALSE}
+```{r, echo=FALSE}
 mean_temp_state_map <- ggChoropleth(
   data = acc_state,
   aes(fill = mean_temp, map_id = state_name),
   map = states_map,
   interactive = T
 )
-meanseverity_state_p3
+mean_temp_state_map
+```
 
-state_cor <- acc_state_day %>%
-  group_by(State) %>%
-  summarise(
-    r = cor(mean_temp, n_acc, use = "pair"),
-    .groups = "drop"
-  ) %>%
-  mutate(state_name = state.name[match(State, state.abb)], map_id = state_name) %>%
-  filter(!is.na(r))
+When we visualize the average accident temperature by state, we can observe that
+generally, accidents in northern states occur more frequently in cooler
+temperatures, while accidents in southern states occur more frequently in warmer
+temperatures.
 
-ggChoropleth(
-  data = state_cor,
-  aes(fill = r, map_id = state_name),
-  map = states_map,
-  interactive = TRUE,
-  title = "Correlation Between Temperature and State"
-)
-
-# we need to group be city because we can't assume that the weather will be the
+```{r, echo=FALSE}
+# we need to group by city because we can't assume that the weather will be the
 #    same across the entire state
 acc_state_day <- acc %>%
   group_by(State, City, date_) %>%
@@ -296,6 +287,31 @@ acc_state_day <- acc %>%
     .groups = "drop"
   )
 
+state_cor <- acc_state_day %>%
+  group_by(State) %>%
+  summarise(
+    r = cor(mean_temp, n_acc, use = "pair"),
+    .groups = "drop"
+  ) %>%
+  mutate(state_name = state.name[match(State, state.abb)],
+         map_id = state_name) %>%
+  filter(!is.na(r))
+
+ggChoropleth(
+  data = state_cor,
+  aes(fill = r, map_id = state_name),
+  map = states_map,
+  interactive = TRUE,
+  title = "Correlation Between Temperature and Number of Accidents by State"
+)
+```
+
+We can observe that for most states, there doesn't seem to be a correlation
+between average temperature and number of accidents, but there are a few
+outliers. There is a slight positive correlation for South Dakota and a slight
+negative correlation for Wyoming.
+
+```{r, echo=FALSE}
 acc_day <- acc_state_day %>%
   group_by(date_) %>%
   summarise(
@@ -319,24 +335,50 @@ temp_ranges <- acc_day %>%
     .groups = "drop"
   ) %>%
   filter(!is.na(temp_range))
-temp_ranges
 
 # we can then plot the average number of accidents per day in each range
 p <- ggplot(temp_ranges, aes(temp_range, mean_n, group = 1)) +
   geom_line() +
   geom_point() +
-  labs(x = "Temperature range (F)", y = "Accidents per day")
-ggplotly(p)
+  labs(x = "Temperature range (F)",
+       y = "Accidents per day",
+       title = "Effect of Temperature on Number of Accidents")
 
+ggplotly(p)
+knitr::kable(
+  (temp_ranges %>% arrange(desc(mean_n)) %>% select(temp_range, mean_n)),
+  col.names = c("Temperature Range",
+                "Number of Accidents"))
+```
+
+We can observe that accidents tend to be less likely at each extreme. Very cold
+temperatures and very hot temperatures see the least number of accidents. The
+temperature range 40-50 sees slightly more accidents than average.
+
+```{r, echo=FALSE}
 # mean severity per day by temp
 p <- ggplot(temp_ranges, aes(temp_range, mean_sev, group = 1)) +
   geom_line() +
   geom_point() +
-  labs(x = "Temperature range (F)", y = "Mean severity / day")
+  labs(x = "Temperature range (F)",
+       y = "Mean severity / day",
+       title = "Effect of Temperature on Accident Severity")
 ggplotly(p)
 
-str(x)
+knitr::kable(
+  (temp_ranges %>% arrange(desc(mean_sev)) %>% select(temp_range, mean_sev)),
+  col.names = c("Temperature Range",
+                "Average Severity"))
+```
 
+While fewer accidents occur at the temperature extremes, we can observe that the
+accidents that do occur are of a higher average severity. Accidents that occur
+when the temperature is between 10 and 20 degrees tend to have the highest
+severity.
+
+## Statistical Analysis
+
+```{r eval=FALSE, include=FALSE}
 x_cor <- cor(x %>% select(n_acc, mean_sev, mean_precip, mean_temp))
 corrplot(
   x_cor,
@@ -354,10 +396,3 @@ t.test(data = x, n ~ precip_day)
 t.test(data = x, n ~ hot_day)
 t.test(data = x, n ~ cold_day)
 ```
-
-- a heatmap showing which states have the most accidents
-- for the best/worst states, determine whether environmental factors have an impact
-- weather vs road conditions severity ?
-
-## Statistical Analysis
-
