@@ -79,12 +79,9 @@ acc <- acc %>%
 # head(acc)
 ```
 
-The raw dataset contains `r scales::comma(nrow(accidents_raw))` observations
-(rows) of `r ncol(accidents_raw)` variables (columns).
+The raw dataset contains `r scales::comma(nrow(accidents_raw))` observations (rows) of `r ncol(accidents_raw)` variables (columns).
 
-After data preparation and cleaning, the dataset contains 
-`r scales::comma(nrow(acc))` observations (rows) of `r ncol(acc)` variables 
-(columns).
+After data preparation and cleaning, the dataset contains `r scales::comma(nrow(acc))` observations (rows) of `r ncol(acc)` variables (columns).
 
 ```{r, echo=FALSE}
 # ACCIDENT SEVERITY COUNTS
@@ -104,23 +101,101 @@ ggplotly(p)
 knitr::kable(sev_count, col.names = c("Severity", "Number of Accidents"))
 ```
 
-The author defines severity as "the impact on traffic." Low severity accidents
-would have a minimal effect on traffic whereas high severity accidents would
-have a significant impact on traffic.
+The author defines severity as "the impact on traffic." Low severity accidents would have a minimal effect on traffic whereas high severity accidents would have a significant impact on traffic.
 
-We can observe that the majority of accidents that took place between 2016 and 
-2023 were categorized as 
-"`r (sev_count %>% arrange(desc(n)) %>% head(1))$sevg`," accounting
-for `r scales::comma((sev_count %>% arrange(desc(n)) %>% head(1))$n)` of the
-total `r scales::comma(nrow(acc))` accidents.
+We can observe that the majority of accidents that took place between 2016 and 2023 were categorized as "`r (sev_count %>% arrange(desc(n)) %>% head(1))$sevg`," accounting for `r scales::comma((sev_count %>% arrange(desc(n)) %>% head(1))$n)` of the total `r scales::comma(nrow(acc))` accidents.
 
-## time-based trends
+## Time-Based Trends
 
-- time-series plot showing accident frequency over time, and maybe how this changes year to year 
-- bar chart showing what time of day the most accidents occur
-- bar chart showing whether or not accidents occur more frequently on certain days of the week, day of the month, month of the year, etc
-- not sure what kind of chart, but determine whether accident frequency/severity is impacted by holidays
+### Daily Accident Trends (2016–2023)
 
+The interactive time series plot shows daily accident counts across the United States from 2016 to 2023. The frequency of reported accidents increased noticeably after 2020, with peaks exceeding 10,000 accidents per day. This upward trend may reflect improved reporting mechanisms, changes in driving behavior, or broader shifts in traffic volume and weather conditions.
+
+```{r}
+accident_counts <- accidents %>%
+  group_by(date_) %>%
+  summarise(count = n())
+
+accident_xts <- xts(accident_counts$count, order.by = accident_counts$date_)
+
+dygraph(accident_xts, main = "Daily Accident Counts (2016–2023)") %>%
+  dySeries("V1", label = "Accidents") %>%
+  dyRangeSelector()
+
+```
+
+### Average Accident Severity by Weather Condition
+
+Among the top 10 most common weather conditions, "Overcast" and "Scattered Clouds" were associated with the highest average accident severity. In contrast, fair weather conditions such as "Fair" and "Fog" were linked to lower severity scores. This suggests that overcast or unstable weather may contribute to more serious traffic incidents.
+
+```{r}
+weather_severity <- accidents %>%
+  filter(!is.na(weather)) %>%
+  group_by(weather) %>%
+  summarise(
+    avg_severity = mean(Severity),
+    count = n()
+  ) %>%
+  arrange(desc(count)) %>%
+  slice(1:10) 
+
+# Bar plot
+ggplot(weather_severity, aes(x = reorder(weather, -avg_severity), y = avg_severity)) +
+  geom_col(fill = "steelblue") +
+  labs(title = "Average Severity by Weather Condition (Top 10)",
+       x = "Weather Condition", y = "Average Severity") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+### Accidents Distribtued by Hour, Day of Week, and Month
+
+#### Hourly Distribution of Accidents
+
+The distribution of accidents by hour reveals two major peaks: one around 7–8 AM and another between 3–6 PM, corresponding to typical rush hour periods. Fewer accidents occur during the early morning hours, while activity steadily increases throughout the day and decreases again in the evening.
+
+```{r}
+ggplot(accidents, aes(x = hour)) +
+  geom_bar(fill = "skyblue", color = "black") +
+  labs(title = "Accidents by Hour of Day",
+       x = "Hour (24-Hour Format)", y = "Number of Accidents") +
+  scale_y_continuous(labels = comma) +
+  theme_minimal()
+```
+
+#### Weekly Distribution of Accidents
+
+Accidents occurred most frequently on weekdays, with Friday showing the highest count, followed closely by Wednesday and Thursday. Sundays and Saturdays saw significantly fewer accidents. This pattern reflects increased commuting activity during the workweek compared to weekends.
+
+```{r}
+# Create day_of_week column from date_
+accidents$day_of_week <- weekdays(accidents$date_)
+
+accidents$day_of_week <- factor(accidents$day_of_week,
+                                levels = c("Sunday", "Monday", "Tuesday", "Wednesday", 
+                                           "Thursday", "Friday", "Saturday"))
+ggplot(accidents, aes(x = day_of_week)) +
+  geom_bar(fill = "lightgreen", color = "black") +
+  labs(title = "Accidents by Day of the Week",
+       x = "Day", y = "Number of Accidents") +
+  scale_y_continuous(labels = scales::comma) +  # optional, for comma formatting
+  theme_minimal()
+```
+
+#### Monthly Distribution of Accidents
+
+December experienced the highest number of accidents, followed by January and November. Accident frequency was generally lower in the summer months, particularly July. This trend may reflect seasonal variations such as holiday travel, winter weather conditions, or changes in daylight and visibility.
+
+```{r}
+# ----------- Accidents by Month -----------
+
+ggplot(accidents, aes(x = factor(month))) +
+  geom_bar(fill = "orange", color = "black") +
+  labs(title = "Accidents by Month",
+       x = "Month", y = "Number of Accidents") +
+  scale_y_continuous(labels = comma) +
+  theme_minimal()
+```
 
 ## Geographic Trends
 
@@ -206,9 +281,7 @@ knitr::kable(
   caption = "Top 5 States with Most Accidents")
 ```
 
-We can observe that, when adjusted for population, the following states: 
-`r str_flatten_comma(head((acc_state %>% arrange(desc(acc_per_100k))), 5)$state_name)`, 
-had the most accidents from 2016 to 2023.
+We can observe that, when adjusted for population, the following states: `r str_flatten_comma(head((acc_state %>% arrange(desc(acc_per_100k))), 5)$state_name)`, had the most accidents from 2016 to 2023.
 
 ### Average Severity by State
 
@@ -247,12 +320,7 @@ knitr::kable(
   caption = "Top 5 States with Worst Average Severity")
 ```
 
-While South Carolina had the most accidents per capita, the average severity was
-one of the lowest of all the states. The states that had the worst average
-severity were Georgia, Wisconsin, Rhode Island, Kentucky, and Colorado. While
-some states had a higher average severity than others, the largest difference in
-average severity was only 
-`r round(max(acc_state$mean_sev)-min(acc_state$mean_sev), 2)`. 
+While South Carolina had the most accidents per capita, the average severity was one of the lowest of all the states. The states that had the worst average severity were Georgia, Wisconsin, Rhode Island, Kentucky, and Colorado. While some states had a higher average severity than others, the largest difference in average severity was only `r round(max(acc_state$mean_sev)-min(acc_state$mean_sev), 2)`.
 
 ## Environmental Trends
 
@@ -266,10 +334,7 @@ mean_temp_state_map <- ggChoropleth(
 mean_temp_state_map
 ```
 
-When we visualize the average accident temperature by state, we can observe that
-generally, accidents in northern states occur more frequently in cooler
-temperatures, while accidents in southern states occur more frequently in warmer
-temperatures.
+When we visualize the average accident temperature by state, we can observe that generally, accidents in northern states occur more frequently in cooler temperatures, while accidents in southern states occur more frequently in warmer temperatures.
 
 ```{r, echo=FALSE}
 # we need to group by city because we can't assume that the weather will be the
@@ -306,10 +371,7 @@ ggChoropleth(
 )
 ```
 
-We can observe that for most states, there doesn't seem to be a correlation
-between average temperature and number of accidents, but there are a few
-outliers. There is a slight positive correlation for South Dakota and a slight
-negative correlation for Wyoming.
+We can observe that for most states, there doesn't seem to be a correlation between average temperature and number of accidents, but there are a few outliers. There is a slight positive correlation for South Dakota and a slight negative correlation for Wyoming.
 
 ```{r, echo=FALSE}
 acc_day <- acc_state_day %>%
@@ -351,9 +413,7 @@ knitr::kable(
                 "Number of Accidents"))
 ```
 
-We can observe that accidents tend to be less likely at each extreme. Very cold
-temperatures and very hot temperatures see the least number of accidents. The
-temperature range 40-50 sees slightly more accidents than average.
+We can observe that accidents tend to be less likely at each extreme. Very cold temperatures and very hot temperatures see the least number of accidents. The temperature range 40-50 sees slightly more accidents than average.
 
 ```{r, echo=FALSE}
 # mean severity per day by temp
@@ -371,12 +431,155 @@ knitr::kable(
                 "Average Severity"))
 ```
 
-While fewer accidents occur at the temperature extremes, we can observe that the
-accidents that do occur are of a higher average severity. Accidents that occur
-when the temperature is between 10 and 20 degrees tend to have the highest
-severity.
+While fewer accidents occur at the temperature extremes, we can observe that the accidents that do occur are of a higher average severity. Accidents that occur when the temperature is between 10 and 20 degrees tend to have the highest severity.
 
 ## Statistical Analysis
+
+### Correlation Analysis of Key Quantitative Features
+
+The heatmap shows the correlation between quantitative features such as temperature, wind chill, visibility, precipitation, and severity. Temperature and wind chill were nearly perfectly correlated ($r = 0.99$), as expected. However, severity had only weak correlations with all other variables, suggesting that accident severity is influenced by additional factors beyond those measured here.
+
+```{r}
+numeric_data <- accidents %>%
+  select(Severity, visibility, temperature, wind_chill, precipitation) %>%
+  na.omit()
+
+cor_matrix <- cor(numeric_data)
+cor_melted <- melt(cor_matrix)
+
+ggplot(cor_melted, aes(Var1, Var2, fill = value)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1,1), space = "Lab", 
+                       name="Correlation") +
+  geom_text(aes(label = round(value, 2)), color = "black", size = 4) +
+  theme_minimal() +
+  labs(title = "Correlation Heatmap of Numerical Features", x = "", y = "")
+
+```
+
+### ANOVA on Accident Severity by Weather Condition
+
+A one-way ANOVA was conducted to examine whether accident severity differs by weather condition. The results showed a statistically significant effect of weather on accident severity, $F(4, 1,\!814,\!823) = 18,\!549$, $p < .001$, indicating that the average severity of accidents varies across different weather conditions.
+
+```{r}
+anova_data <- accidents %>%
+  filter(!is.na(weather) & !is.na(Severity)) %>%
+  filter(weather %in% c("Clear", "Cloudy", "Rain", "Snow", "Fog"))
+
+# Run ANOVA
+anova_result <- aov(Severity ~ weather, data = anova_data)
+
+# Output ANOVA table
+summary(anova_result)
+```
+
+### T-Tests on Severity and Frequency for Holidays
+
+#### Severity on Specific Holidays T-Test
+
+A Welch two-sample t-test was conducted to compare accident severity on specific holidays versus other days. The results showed a statistically significant difference in severity scores, $t(93,\!469) = 2.50$, $p = .0125$. The average severity on non-holidays ($M = 2.212$) was slightly higher than on holidays ($M = 2.208$), with a 95% confidence interval for the difference in means ranging from 0.0009 to 0.0073.
+
+#### Frequency on Specific Holidays T-Test
+
+A Welch two-sample t-test was also conducted to examine differences in the average number of accidents per day on holidays versus non-holidays. The results were statistically significant, $t(43.04) = 3.27$, $p = .0021$. The mean number of accidents per day was higher on non-holidays ($M = 2,\!947$) compared to holidays ($M = 2,\!173$), with a 95% confidence interval for the difference in means ranging from 297 to 1,!250.
+
+```{r}
+library(lubridate)
+library(dplyr)
+library(ggplot2)
+
+# fixed date holidays
+custom_holidays <- c("01-01", # New Year's Day
+                     "07-04", # Independence Day
+                     "12-25") # Christmas
+
+# floating holidays
+get_floating_holidays <- function(years) {
+  holidays <- c()
+  
+  for (y in years) {
+    # Thanksgiving: 4th Thursday in November
+    thanksgiving <- as.Date(cut(as.Date(paste0(y, "-11-01")) + weeks(3), "week")) + 4
+    while (weekdays(thanksgiving) != "Thursday") {
+      thanksgiving <- thanksgiving + 1
+    }
+    
+    # Memorial Day: last Monday in May
+    memorial_day <- as.Date(paste0(y, "-05-31"))
+    while (weekdays(memorial_day) != "Monday") {
+      memorial_day <- memorial_day - 1
+    }
+    
+    # Labor Day: first Monday in September
+    labor_day <- as.Date(paste0(y, "-09-01"))
+    while (weekdays(labor_day) != "Monday") {
+      labor_day <- labor_day + 1
+    }
+    
+    holidays <- c(holidays, thanksgiving, memorial_day, labor_day)
+  }
+  
+  as.Date(holidays)
+}
+
+# full holiday list
+years <- 2016:2023
+floating_days <- get_floating_holidays(years)
+
+fixed_days <- do.call(c, lapply(years, function(y) {
+  as.Date(paste0(y, "-", custom_holidays))
+}))
+
+# Combine all holidays
+specific_holidays <- sort(c(fixed_days, floating_days))
+
+# Flag holidays in accident data
+acc$holiday_specific <- acc$date_ %in% specific_holidays
+
+
+# T-Test: Severity
+t_test_severity <- t.test(Severity ~ holiday_specific, data = acc)
+print("T-test on Severity (Specific Holidays):")
+print(t_test_severity)
+
+# Frequency per day
+acc_day <- acc %>%
+  group_by(date_) %>%
+  summarise(n_acc = n(), holiday_specific = any(holiday_specific)) %>%
+  ungroup()
+
+t_test_freq <- t.test(n_acc ~ holiday_specific, data = acc_day)
+print("T-test on Frequency (Specific Holidays):")
+print(t_test_freq)
+
+```
+
+#### Visualization: Severity on Holidays
+
+Although the difference is small, the chart shows a **slightly higher average severity for accidents on non-holidays** compared to holidays. The mean severity was **2.212 on non-holidays** and **2.208 on holidays**. The corresponding Welch t-test ($t(93,\!469) = 2.50$, $p = .0125$) confirms that this difference is **statistically significant**, although not practically large. This suggests that while there are fewer accidents on holidays, they are not necessarily more or less severe.
+
+```{r}
+acc %>%
+  group_by(holiday_specific) %>%
+  summarise(mean_severity = mean(Severity)) %>%
+  ggplot(aes(x = holiday_specific, y = mean_severity, fill = holiday_specific)) +
+  geom_col() +
+  labs(title = "Average Severity on Specific Holidays vs. Other Days", y = "Avg Severity", x = "Is Specific Holiday")
+```
+
+#### Visualization: Frequency of Accidents on Holidays
+
+The bar chart clearly shows that the **average number of accidents per day is significantly lower on specific holidays** compared to non-holiday dates. On average, there were around **2,173 accidents per day on holidays** versus **2,947 on non-holidays**. This visual supports the results of the Welch two-sample t-test ($t(43.04) = 3.27$, $p = .0021$), confirming that this difference is **statistically significant**. The lower volume on holidays may reflect reduced traffic due to time off from work and school.
+
+```{r}
+acc_day %>%
+  group_by(holiday_specific) %>%
+  summarise(mean_accidents = mean(n_acc)) %>%
+  ggplot(aes(x = holiday_specific, y = mean_accidents, fill = holiday_specific)) +
+  geom_col() +
+  labs(title = "Average Daily Accidents: Specific Holidays vs. Other Days", y = "Avg Accidents/Day", x = "Is Specific Holiday")
+```
 
 ```{r eval=FALSE, include=FALSE}
 x_cor <- cor(x %>% select(n_acc, mean_sev, mean_precip, mean_temp))
