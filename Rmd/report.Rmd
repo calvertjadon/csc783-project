@@ -101,7 +101,7 @@ p <- ggplot(sev_count, aes(x = sevg, y = n)) +
   )
 
 ggplotly(p)
-sev_count
+knitr::kable(sev_count, col.names = c("Severity", "Number of Accidents"))
 ```
 
 The author defines severity as "the impact on traffic." Low severity accidents
@@ -196,11 +196,13 @@ n_acc_state_map <- ggChoropleth(
 
 ggplotly(acc_state_bar, tooltip = c("x", "y"))
 n_acc_state_map
-head(acc_state %>%
-       arrange(desc(acc_per_100k)) %>%
-       select(state_name, acc_per_100k) %>% 
-       mutate(acc_per_100k = scales::comma(acc_per_100k, accuracy = 0.01)),
-     5)
+knitr::kable(
+  head(acc_state %>%
+         arrange(desc(acc_per_100k)) %>%
+         select(state_name, acc_per_100k),
+       5),
+  col.names = c("State", "Accidents Per 100K"),
+  caption = "Top 5 States with Most Accidents")
 ```
 
 We can observe that, when adjusted for population, the following states: 
@@ -235,10 +237,13 @@ mean_sev_state_map <- ggChoropleth(
 
 ggplotly(mean_sev_state_bar, tooltip = c("x", "y"))
 mean_sev_state_map
-head(acc_state %>%
-       arrange(desc(mean_sev)) %>%
-       select(state_name, mean_sev) %>%
-       mutate(mean_sev = round(mean_sev, 2)), 5)
+knitr::kable(
+  head(acc_state %>%
+         arrange(desc(mean_sev)) %>%
+         select(state_name, mean_sev),
+         5),
+  col.names = c("State", "Average Accident Severity"),
+  caption = "Top 5 States with Worst Average Severity")
 ```
 
 While South Carolina had the most accidents per capita, the average severity was
