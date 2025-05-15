@@ -106,6 +106,12 @@ p <- ggplot(sev_count, aes(x = sevg, y = n)) +
     y = "Number of Accidents"
   )
 
+f <- here("Rmd", "ieee", "figures", "acc-by-severity.png")
+ggsave(f, p +
+         theme_minimal(base_size = 9), 
+         width = 3.5, height = 2.5, units = "in")
+knitr::plot_crop(f)
+
 ggplotly(p)
 knitr::kable(sev_count, col.names = c("Severity", "Number of Accidents"))
 ```
@@ -149,12 +155,19 @@ weather_severity <- acc %>%
   slice(1:10) 
 
 # Bar plot
-ggplot(weather_severity, aes(x = reorder(weather, -avg_severity), y = avg_severity)) +
+p <- ggplot(weather_severity, aes(x = reorder(weather, -avg_severity), y = avg_severity)) +
   geom_col(fill = "steelblue") +
   labs(title = "Average Severity by Weather Condition (Top 10)",
        x = "Weather Condition", y = "Average Severity") +
-  theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+f <- here("Rmd", "ieee", "figures", "sev-by-weather.png")
+ggsave(f, p +
+  theme_minimal(base_size = 7) ,
+         width = 3.5, height = 2.5, units = "in")
+knitr::plot_crop(f)
+
+ggplotly(p + theme_minimal())
 ```
 
 ### Accidents Distribtued by Hour, Day of Week, and Month
@@ -164,12 +177,19 @@ ggplot(weather_severity, aes(x = reorder(weather, -avg_severity), y = avg_severi
 The distribution of accidents by hour reveals two major peaks: one around 7–8 AM and another between 3–6 PM, corresponding to typical rush hour periods. Fewer accidents occur during the early morning hours, while activity steadily increases throughout the day and decreases again in the evening.
 
 ```{r}
-ggplot(acc, aes(x = hour_)) +
+p <- ggplot(acc, aes(x = hour_)) +
   geom_bar(fill = "skyblue", color = "black") +
   labs(title = "Accidents by Hour of Day",
        x = "Hour (24-Hour Format)", y = "Number of Accidents") +
-  scale_y_continuous(labels = scales::comma) +
-  theme_minimal()
+  scale_y_continuous(labels = scales::comma) 
+
+f <- here("Rmd", "ieee", "figures", "acc-by-hour.png")
+ggsave(f, p +
+  theme_minimal(base_size = 7) ,
+         width = 3.5, height = 2.5, units = "in")
+knitr::plot_crop(f)
+
+ggplotly(p + theme_minimal())
 ```
 
 #### Weekly Distribution of Accidents
@@ -177,12 +197,19 @@ ggplot(acc, aes(x = hour_)) +
 Accidents occurred most frequently on weekdays, with Friday showing the highest count, followed closely by Wednesday and Thursday. Sundays and Saturdays saw significantly fewer accidents. This pattern reflects increased commuting activity during the workweek compared to weekends.
 
 ```{r}
-ggplot(acc, aes(x = day_of_week)) +
+p <- ggplot(acc, aes(x = day_of_week)) +
   geom_bar(fill = "lightgreen", color = "black") +
   labs(title = "Accidents by Day of the Week",
        x = "Day", y = "Number of Accidents") +
-  scale_y_continuous(labels = scales::comma) +  # optional, for comma formatting
-  theme_minimal()
+  scale_y_continuous(labels = scales::comma)   # optional, for comma formatting
+
+f <- here("Rmd", "ieee", "figures", "acc-by-weekday.png")
+ggsave(f, p +
+  theme_minimal(base_size = 7) ,
+         width = 3.5, height = 2.5, units = "in")
+knitr::plot_crop(f)
+
+ggplotly(p + theme_minimal())
 ```
 
 #### Monthly Distribution of Accidents
@@ -192,12 +219,19 @@ December experienced the highest number of accidents, followed by January and No
 ```{r}
 # ----------- Accidents by Month -----------
 
-ggplot(acc, aes(x = factor(month_))) +
+p <- ggplot(acc, aes(x = factor(month_))) +
   geom_bar(fill = "orange", color = "black") +
   labs(title = "Accidents by Month",
        x = "Month", y = "Number of Accidents") +
-  scale_y_continuous(labels = scales::comma) +
-  theme_minimal()
+  scale_y_continuous(labels = scales::comma) 
+
+f <- here("Rmd", "ieee", "figures", "acc-by-month.png")
+ggsave(f, p +
+  theme_minimal(base_size = 7) ,
+         width = 3.5, height = 2.5, units = "in")
+knitr::plot_crop(f)
+
+ggplotly(p + theme_minimal())
 ```
 
 ## Geographic Trends
@@ -357,6 +391,30 @@ mean_sev_state_map <- ggChoropleth(
   title = "Average Accident Severity by State (2016 – 2023)"
 )
 
+mean_sev_state_map_png <- ggChoropleth(
+  data = acc_state,
+  aes(fill = mean_sev, map_id = state_name),
+  map = states_map,
+  interactive = FALSE
+)
+
+f <- here("Rmd", "ieee", "figures", "mean-sev-state-map.png")
+ggsave(f, mean_sev_state_map_png +
+         scale_fill_gradient2(
+           low = "white",
+           mid = "grey",
+           high = "red",
+           midpoint = mean(acc_state$mean_sev),
+           name = "Average Severity"
+         ) +
+         theme_void(base_size = 9) +
+         theme(
+           plot.margin = margin(0, 0, 0, 0, "pt"),
+           legend.position = "bottom",
+         ),
+       width = 3.5, height = 2.5, units = "in")
+knitr::plot_crop(f)
+
 tbl_worst5_avg_sev <- knitr::kable(
   head(acc_state %>%
          arrange(desc(mean_sev)) %>%
@@ -367,11 +425,13 @@ tbl_worst5_avg_sev <- knitr::kable(
   format = "html"
 )
 
-f <- here("Rmd", "ieee", "figures", "worst-5-states-avg-sev.png")
-kableExtra::save_kable(tbl_worst5_avg_sev %>% kable_styling(font_size = 24),f)
+f <- here("Rmd", "ieee", "figures", "mean-sev-state-bar.png")
+ggsave(f, mean_sev_state_bar +
+  theme_minimal(base_size = 7) ,
+         width = 3.5, height = 4.5, units = "in")
 knitr::plot_crop(f)
 
-ggplotly(mean_sev_state_bar, tooltip = c("x", "y"))
+ggplotly(mean_sev_state_bar + theme_minimal(), tooltip = c("x", "y"))
 mean_sev_state_map
 tbl_worst5_avg_sev
 ```
@@ -387,6 +447,31 @@ mean_temp_state_map <- ggChoropleth(
   map = states_map,
   interactive = T
 )
+
+mean_temp_state_map_png <- ggChoropleth(
+  data = acc_state,
+  aes(fill = mean_temp, map_id = state_name),
+  map = states_map,
+  interactive = FALSE
+)
+
+f <- here("Rmd", "ieee", "figures", "mean-temp-state-map.png")
+ggsave(f, mean_temp_state_map_png +
+         scale_fill_gradient2(
+           low = "white",
+           mid = "grey",
+           high = "red",
+           midpoint = mean(acc_state$mean_temp),
+           name = "Average Temperature (F)"
+         ) +
+         theme_void(base_size = 9) +
+         theme(
+           plot.margin = margin(0, 0, 0, 0, "pt"),
+           legend.position = "bottom",
+         ),
+       width = 3.5, height = 2.5, units = "in")
+knitr::plot_crop(f)
+
 mean_temp_state_map
 ```
 
@@ -418,13 +503,33 @@ state_cor <- acc_state_day %>%
          map_id = state_name) %>%
   filter(!is.na(r))
 
-ggChoropleth(
+state_cor_map <- ggChoropleth(
   data = state_cor,
   aes(fill = r, map_id = state_name),
   map = states_map,
   interactive = TRUE,
   title = "Correlation Between Temperature and Number of Accidents by State"
 )
+
+state_cor_map_png <- ggChoropleth(
+  data = state_cor,
+  aes(fill = r, map_id = state_name),
+  map = states_map,
+  interactive = FALSE
+)
+
+f <- here("Rmd", "ieee", "figures", "state-cor-map.png")
+ggsave(f, state_cor_map_png +
+         scale_fill_gradient2(
+           name = "Average Temperature (F)"
+         ) +
+         theme_void(base_size = 9) +
+         theme(
+           plot.margin = margin(0, 0, 0, 0, "pt"),
+           legend.position = "bottom",
+         ),
+       width = 3.5, height = 2.5, units = "in")
+knitr::plot_crop(f)
 ```
 
 We can observe that for most states, there doesn't seem to be a correlation between average temperature and number of accidents, but there are a few outliers. There is a slight positive correlation for South Dakota and a slight negative correlation for Wyoming.
@@ -462,7 +567,13 @@ p <- ggplot(temp_ranges, aes(temp_range, mean_n, group = 1)) +
        y = "Accidents per day",
        title = "Effect of Temperature on Number of Accidents")
 
-ggplotly(p)
+f <- here("Rmd", "ieee", "figures", "acc-by-temp.png")
+ggsave(f, p +
+  theme_minimal(base_size = 7) ,
+         width = 3.5, height = 2.5, units = "in")
+knitr::plot_crop(f)
+
+ggplotly(p + theme_minimal())
 knitr::kable(
   (temp_ranges %>% arrange(desc(mean_n)) %>% select(temp_range, mean_n)),
   col.names = c("Temperature Range",
@@ -479,7 +590,14 @@ p <- ggplot(temp_ranges, aes(temp_range, mean_sev, group = 1)) +
   labs(x = "Temperature range (F)",
        y = "Mean severity / day",
        title = "Effect of Temperature on Accident Severity")
-ggplotly(p)
+
+f <- here("Rmd", "ieee", "figures", "sev-by-temp.png")
+ggsave(f, p +
+  theme_minimal(base_size = 7) ,
+         width = 3.5, height = 2.5, units = "in")
+knitr::plot_crop(f)
+
+ggplotly(p + theme_minimal())
 
 knitr::kable(
   (temp_ranges %>% arrange(desc(mean_sev)) %>% select(temp_range, mean_sev)),
@@ -503,14 +621,21 @@ numeric_data <- acc %>%
 cor_matrix <- cor(numeric_data)
 cor_melted <- melt(cor_matrix)
 
-ggplot(cor_melted, aes(Var1, Var2, fill = value)) +
+p <- ggplot(cor_melted, aes(Var1, Var2, fill = value)) +
   geom_tile(color = "white") +
   scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
                        midpoint = 0, limit = c(-1,1), space = "Lab", 
                        name="Correlation") +
   geom_text(aes(label = round(value, 2)), color = "black", size = 4) +
-  theme_minimal() +
   labs(title = "Correlation Heatmap of Numerical Features", x = "", y = "")
+
+f <- here("Rmd", "ieee", "figures", "cor-numerical.png")
+ggsave(f, p +
+  theme_minimal(base_size = 7) ,
+         width = 3.5, height = 2.5, units = "in")
+knitr::plot_crop(f)
+
+ggplotly(p + theme_minimal())
 
 ```
 
@@ -616,12 +741,20 @@ print(t_test_freq)
 Although the difference is small, the chart shows a **slightly higher average severity for accidents on non-holidays** compared to holidays. The mean severity was **2.212 on non-holidays** and **2.208 on holidays**. The corresponding Welch t-test ($t(93,\!469) = 2.50$, $p = .0125$) confirms that this difference is **statistically significant**, although not practically large. This suggests that while there are fewer accidents on holidays, they are not necessarily more or less severe.
 
 ```{r}
-acc %>%
+p <- acc %>%
   group_by(holiday_specific) %>%
   summarise(mean_severity = mean(Severity)) %>%
   ggplot(aes(x = holiday_specific, y = mean_severity, fill = holiday_specific)) +
   geom_col() +
   labs(title = "Average Severity on Specific Holidays vs. Other Days", y = "Avg Severity", x = "Is Specific Holiday")
+
+f <- here("Rmd", "ieee", "figures", "sev-holiday.png")
+ggsave(f, p +
+  theme_minimal(base_size = 7) ,
+         width = 3.5, height = 2.5, units = "in")
+knitr::plot_crop(f)
+
+ggplotly(p + theme_minimal())
 ```
 
 #### Visualization: Frequency of Accidents on Holidays
@@ -629,12 +762,20 @@ acc %>%
 The bar chart clearly shows that the **average number of accidents per day is significantly lower on specific holidays** compared to non-holiday dates. On average, there were around **2,173 accidents per day on holidays** versus **2,947 on non-holidays**. This visual supports the results of the Welch two-sample t-test ($t(43.04) = 3.27$, $p = .0021$), confirming that this difference is **statistically significant**. The lower volume on holidays may reflect reduced traffic due to time off from work and school.
 
 ```{r}
-acc_day %>%
+p <- acc_day %>%
   group_by(holiday_specific) %>%
   summarise(mean_accidents = mean(n_acc)) %>%
   ggplot(aes(x = holiday_specific, y = mean_accidents, fill = holiday_specific)) +
   geom_col() +
   labs(title = "Average Daily Accidents: Specific Holidays vs. Other Days", y = "Avg Accidents/Day", x = "Is Specific Holiday")
+
+f <- here("Rmd", "ieee", "figures", "acc-holiday.png")
+ggsave(f, p +
+  theme_minimal(base_size = 7) ,
+         width = 3.5, height = 2.5, units = "in")
+knitr::plot_crop(f)
+
+ggplotly(p + theme_minimal())
 ```
 
 ```{r eval=FALSE, include=FALSE}
