@@ -11,9 +11,6 @@ suppressPackageStartupMessages(library(ggplot2))
 ```
 
 ```{r, echo=FALSE}
-```
-
-```{r, echo=FALSE}
 library(readr)
 library(here)
 library(dplyr)
@@ -24,6 +21,11 @@ library(plotly)
 library(ggiraphExtra)
 library(maps)
 library(mapproj)
+library(xts)  
+library(dygraphs)
+library(reshape2)
+library(kableExtra)
+
 
 # -- Import and Clean Data --
 if (!exists("accidents_raw")) {
@@ -42,13 +44,12 @@ acc <- acc %>%
     year_ = year(Start_Time),
     month_ = month(Start_Time),
     hour_ = hour(Start_Time),
-    `Precipitation(in)` = coalesce(`Precipitation(in)`, 0),
-    any_precip = `Precipitation(in)` > 0,
-    Weather_Condition = coalesce(Weather_Condition, "Unknown"),
-    `Temperature(F)` = coalesce(
-      `Temperature(F)`,
-      mean(`Temperature(F)`, na.rm = T)
-    )
+    precipitation = coalesce(`Precipitation(in)`, 0),
+    any_precip = precipitation > 0,
+    weather = coalesce(Weather_Condition, "Unknown"),
+    temperature = coalesce(`Temperature(F)`, mean(`Temperature(F)`, na.rm = TRUE)),
+    visibility = `Visibility(mi)`,
+    wind_chill = `Wind_Chill(F)`
   )
 
 # augmentation
@@ -56,6 +57,13 @@ state_lookup <- data.frame(
   State = state.abb,
   state_name = str_to_title(state.name)
 )
+
+# Create day_of_week column from date_
+acc$day_of_week <- weekdays(acc$date_)
+
+acc$day_of_week <- factor(acc$day_of_week,
+                                levels = c("Sunday", "Monday", "Tuesday", "Wednesday", 
+                                           "Thursday", "Friday", "Saturday"))
 
 acc <- acc %>%
   mutate(
@@ -113,7 +121,7 @@ We can observe that the majority of accidents that took place between 2016 and 2
 The interactive time series plot shows daily accident counts across the United States from 2016 to 2023. The frequency of reported accidents increased noticeably after 2020, with peaks exceeding 10,000 accidents per day. This upward trend may reflect improved reporting mechanisms, changes in driving behavior, or broader shifts in traffic volume and weather conditions.
 
 ```{r}
-accident_counts <- accidents %>%
+accident_counts <- acc %>%
   group_by(date_) %>%
   summarise(count = n())
 
@@ -130,7 +138,7 @@ dygraph(accident_xts, main = "Daily Accident Counts (2016–2023)") %>%
 Among the top 10 most common weather conditions, "Overcast" and "Scattered Clouds" were associated with the highest average accident severity. In contrast, fair weather conditions such as "Fair" and "Fog" were linked to lower severity scores. This suggests that overcast or unstable weather may contribute to more serious traffic incidents.
 
 ```{r}
-weather_severity <- accidents %>%
+weather_severity <- acc %>%
   filter(!is.na(weather)) %>%
   group_by(weather) %>%
   summarise(
@@ -156,11 +164,11 @@ ggplot(weather_severity, aes(x = reorder(weather, -avg_severity), y = avg_severi
 The distribution of accidents by hour reveals two major peaks: one around 7–8 AM and another between 3–6 PM, corresponding to typical rush hour periods. Fewer accidents occur during the early morning hours, while activity steadily increases throughout the day and decreases again in the evening.
 
 ```{r}
-ggplot(accidents, aes(x = hour)) +
+ggplot(acc, aes(x = hour_)) +
   geom_bar(fill = "skyblue", color = "black") +
   labs(title = "Accidents by Hour of Day",
        x = "Hour (24-Hour Format)", y = "Number of Accidents") +
-  scale_y_continuous(labels = comma) +
+  scale_y_continuous(labels = scales::comma) +
   theme_minimal()
 ```
 
@@ -169,13 +177,7 @@ ggplot(accidents, aes(x = hour)) +
 Accidents occurred most frequently on weekdays, with Friday showing the highest count, followed closely by Wednesday and Thursday. Sundays and Saturdays saw significantly fewer accidents. This pattern reflects increased commuting activity during the workweek compared to weekends.
 
 ```{r}
-# Create day_of_week column from date_
-accidents$day_of_week <- weekdays(accidents$date_)
-
-accidents$day_of_week <- factor(accidents$day_of_week,
-                                levels = c("Sunday", "Monday", "Tuesday", "Wednesday", 
-                                           "Thursday", "Friday", "Saturday"))
-ggplot(accidents, aes(x = day_of_week)) +
+ggplot(acc, aes(x = day_of_week)) +
   geom_bar(fill = "lightgreen", color = "black") +
   labs(title = "Accidents by Day of the Week",
        x = "Day", y = "Number of Accidents") +
@@ -190,11 +192,11 @@ December experienced the highest number of accidents, followed by January and No
 ```{r}
 # ----------- Accidents by Month -----------
 
-ggplot(accidents, aes(x = factor(month))) +
+ggplot(acc, aes(x = factor(month_))) +
   geom_bar(fill = "orange", color = "black") +
   labs(title = "Accidents by Month",
        x = "Month", y = "Number of Accidents") +
-  scale_y_continuous(labels = comma) +
+  scale_y_continuous(labels = scales::comma) +
   theme_minimal()
 ```
 
@@ -248,6 +250,7 @@ acc_state <- acc %>%
 ### Total Accidents per State
 
 ```{r, echo=FALSE}
+# --- bar chart showing accidents per state ---
 acc_state_bar <- ggplot(
   data = acc_state,
   aes(
@@ -263,6 +266,15 @@ acc_state_bar <- ggplot(
     y = "Accidents Per 100K"
   )
 
+# save figure to png for use in final report
+f <- here("Rmd", "ieee", "figures", "acc_state_bar.png")
+ggsave(f, acc_state_bar +
+         theme_minimal(base_size = 7) +
+         labs(title = NULL),
+       width = 3.5, height = 4.5, units = "in")
+knitr::plot_crop(f)
+
+# --- choropleth map showing accidents per state ---
 n_acc_state_map <- ggChoropleth(
   data = acc_state,
   aes(fill = acc_per_100k, map_id = state_name),
@@ -271,44 +283,50 @@ n_acc_state_map <- ggChoropleth(
   title = "Total Accidents Per 100K Residents",
 )
 
-n_acc_state_map_PDF <- ggChoropleth(
+n_acc_state_map_png <- ggChoropleth(
   data = acc_state,
   aes(fill = acc_per_100k, map_id = state_name),
   map = states_map,
   interactive = FALSE,
 )
 
-ggsave("figures/acc_state_bar.pdf",
-       p +
-         theme_minimal(base_size = 9) +
-         labs(title = NULL),
-       device = cairo_pdf, width = 3.5, height = 2.5, units = "in")
-
-ggsave("figures/n_acc_state_map.pdf",
-       n_acc_state_map_PDF +
+# save figure to png for use in final report
+f <- here("Rmd", "ieee", "figures", "n_acc_state_map.png")
+ggsave(f, n_acc_state_map_png +
          scale_fill_gradient2(
            low = "white",
-           mid = "darkgrey",
+           mid = "grey",
            high = "red",
            midpoint = mean(acc_state$acc_per_100k),
            name = "Accidents/100K"
          ) +
          theme_void(base_size = 9) +
          theme(
-           plot.margin = margin(2, 2, 2, 2, "pt"),
+           plot.margin = margin(0, 0, 0, 0, "pt"),
            legend.position = "bottom",
          ),
-       device = cairo_pdf, width = 3.5, height = 2.5, units = "in")
+       width = 3.5, height = 2.5, units = "in")
+knitr::plot_crop(f)
 
-ggplotly(acc_state_bar, tooltip = c("x", "y"))
-n_acc_state_map
-knitr::kable(
+tbl_worst5_acc_state <- knitr::kable(
   head(acc_state %>%
          arrange(desc(acc_per_100k)) %>%
          select(state_name, acc_per_100k),
        5),
   col.names = c("State", "Accidents Per 100K"),
-  caption = "Top 5 States with Most Accidents")
+  caption = "Top 5 States with Most Accidents",
+  format = "html")
+
+
+f <- here("Rmd", "ieee", "figures", "worst-5-states-n-acc.png")
+kableExtra::save_kable(tbl_worst5_acc_state %>% kable_styling(font_size = 24),f)
+knitr::plot_crop(f)
+
+
+# display figures in html
+ggplotly(acc_state_bar, tooltip = c("x", "y"))
+n_acc_state_map
+tbl_worst5_acc_state
 ```
 
 We can observe that, when adjusted for population, the following states: `r str_flatten_comma(head((acc_state %>% arrange(desc(acc_per_100k))), 5)$state_name)`, had the most accidents from 2016 to 2023.
@@ -339,15 +357,23 @@ mean_sev_state_map <- ggChoropleth(
   title = "Average Accident Severity by State (2016 – 2023)"
 )
 
-ggplotly(mean_sev_state_bar, tooltip = c("x", "y"))
-mean_sev_state_map
-knitr::kable(
+tbl_worst5_avg_sev <- knitr::kable(
   head(acc_state %>%
          arrange(desc(mean_sev)) %>%
          select(state_name, mean_sev),
          5),
   col.names = c("State", "Average Accident Severity"),
-  caption = "Top 5 States with Worst Average Severity")
+  caption = "Top 5 States with Worst Average Severity",
+  format = "html"
+)
+
+f <- here("Rmd", "ieee", "figures", "worst-5-states-avg-sev.png")
+kableExtra::save_kable(tbl_worst5_avg_sev %>% kable_styling(font_size = 24),f)
+knitr::plot_crop(f)
+
+ggplotly(mean_sev_state_bar, tooltip = c("x", "y"))
+mean_sev_state_map
+tbl_worst5_avg_sev
 ```
 
 While South Carolina had the most accidents per capita, the average severity was one of the lowest of all the states. The states that had the worst average severity were Georgia, Wisconsin, Rhode Island, Kentucky, and Colorado. While some states had a higher average severity than others, the largest difference in average severity was only `r round(max(acc_state$mean_sev)-min(acc_state$mean_sev), 2)`.
@@ -470,7 +496,7 @@ While fewer accidents occur at the temperature extremes, we can observe that the
 The heatmap shows the correlation between quantitative features such as temperature, wind chill, visibility, precipitation, and severity. Temperature and wind chill were nearly perfectly correlated ($r = 0.99$), as expected. However, severity had only weak correlations with all other variables, suggesting that accident severity is influenced by additional factors beyond those measured here.
 
 ```{r}
-numeric_data <- accidents %>%
+numeric_data <- acc %>%
   select(Severity, visibility, temperature, wind_chill, precipitation) %>%
   na.omit()
 
@@ -493,7 +519,7 @@ ggplot(cor_melted, aes(Var1, Var2, fill = value)) +
 A one-way ANOVA was conducted to examine whether accident severity differs by weather condition. The results showed a statistically significant effect of weather on accident severity, $F(4, 1,\!814,\!823) = 18,\!549$, $p < .001$, indicating that the average severity of accidents varies across different weather conditions.
 
 ```{r}
-anova_data <- accidents %>%
+anova_data <- acc %>%
   filter(!is.na(weather) & !is.na(Severity)) %>%
   filter(weather %in% c("Clear", "Cloudy", "Rain", "Snow", "Fog"))
 
@@ -612,7 +638,7 @@ acc_day %>%
 ```
 
 ```{r eval=FALSE, include=FALSE}
-x_cor <- cor(x %>% select(n_acc, mean_sev, mean_precip, mean_temp))
+x_cor <- cor(acc_state_day %>% select(n_acc, mean_sev, mean_precip, mean_temp))
 corrplot(
   x_cor,
   type = "lower",
@@ -621,11 +647,11 @@ corrplot(
   tl.srt = 45
 )
 
-t.test(data = x, mean_severity ~ precip_day)
-t.test(data = x, mean_severity ~ hot_day)
-t.test(data = x, mean_severity ~ cold_day)
+t.test(data = acc_state_day, mean_sev ~ precip_day)
+t.test(data = acc_state_day, mean_sev ~ hot_day)
+t.test(data = acc_state_day, mean_sev ~ cold_day)
 
-t.test(data = x, n ~ precip_day)
-t.test(data = x, n ~ hot_day)
-t.test(data = x, n ~ cold_day)
+t.test(data = acc_state_day, n_acc ~ precip_day)
+t.test(data = acc_state_day, n_acc ~ hot_day)
+t.test(data = acc_state_day, n_acc ~ cold_day)
 ```

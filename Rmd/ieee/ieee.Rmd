@@ -99,21 +99,43 @@ The raw dataset contains x observations (rows) of y variables (columns).
 
 ## Data Analysis
 
-
 # Results
 
-\begin{figure}[!t]
+## Geographic Analysis
+
+### Total Number of Accidents Per State
+
+As seen in Figures \ref{fig:acc-state-bar}, \ref{fig:n-acc-state-map}, and \ref{fig:worst-5-states-n-acc}, we can observe that, when adjusted for population, the following states: South Carolina, California, Oregon, Florida, Minnesota, had the most accidents from 2016 to 2023.
+
+\begin{figure}[tbp]
   \centering
-  \includegraphics[width=\linewidth]{../../figures/acc_state_bar.pdf}
+  \includegraphics[width=\linewidth]{figures/acc_state_bar.pdf}
   \caption{Bar Chart Displaying Total Accidents Per 100K by State (2016 – 2023)}
   \label{fig:acc-state-bar}
 \end{figure}
 
-\begin{figure}[!t]
+\begin{figure}[tbp]
   \centering
-  \includegraphics[width=\linewidth]{../../figures/n_acc_state_map.pdf}
+  \includegraphics[width=\linewidth]{figures/n_acc_state_map.pdf}
   \caption{Choropleth Map Displaying Total Accidents Per 100K by State (2016 – 2023)}
   \label{fig:n-acc-state-map}
+\end{figure}
+
+\begin{figure}[tbp]
+  \centering
+  \includegraphics[width=\linewidth]{ figures/worst-5-states-n-acc.pdf}
+  \caption{Choropleth Map Displaying Total Accidents Per 100K by State (2016 – 2023)}
+  \label{fig:worst-5-states-n-acc}
+\end{figure}
+
+
+### Average Accident Severity Per State
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/worst-5-states-avg-sev.pdf}
+  \caption{Choropleth Map Displaying Total Accidents Per 100K by State (2016 – 2023)}
+  \label{fig:worst-t-states-avg-sev}
 \end{figure}
 
 As shown in Figure \ref{fig:n-acc-state-map}, …
