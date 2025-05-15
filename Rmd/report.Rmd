@@ -11,6 +11,9 @@ suppressPackageStartupMessages(library(ggplot2))
 ```
 
 ```{r, echo=FALSE}
+```
+
+```{r, echo=FALSE}
 library(readr)
 library(here)
 library(dplyr)
@@ -21,9 +24,7 @@ library(plotly)
 library(ggiraphExtra)
 library(maps)
 library(mapproj)
-```
 
-```{r, echo=FALSE}
 # -- Import and Clean Data --
 if (!exists("accidents_raw")) {
   accidents_raw <- read_csv(here("data", "raw_data", "US_Accidents_March23.csv"),
@@ -194,6 +195,35 @@ n_acc_state_map <- ggChoropleth(
   interactive = T,
   title = "Total Accidents Per 100K Residents",
 )
+
+n_acc_state_map_PDF <- ggChoropleth(
+  data = acc_state,
+  aes(fill = acc_per_100k, map_id = state_name),
+  map = states_map,
+  interactive = FALSE,
+)
+
+ggsave("figures/acc_state_bar.pdf",
+       p +
+         theme_minimal(base_size = 9) +
+         labs(title = NULL),
+       device = cairo_pdf, width = 3.5, height = 2.5, units = "in")
+
+ggsave("figures/n_acc_state_map.pdf",
+       n_acc_state_map_PDF +
+         scale_fill_gradient2(
+           low = "white",
+           mid = "darkgrey",
+           high = "red",
+           midpoint = mean(acc_state$acc_per_100k),
+           name = "Accidents/100K"
+         ) +
+         theme_void(base_size = 9) +
+         theme(
+           plot.margin = margin(2, 2, 2, 2, "pt"),
+           legend.position = "bottom",
+         ),
+       device = cairo_pdf, width = 3.5, height = 2.5, units = "in")
 
 ggplotly(acc_state_bar, tooltip = c("x", "y"))
 n_acc_state_map
