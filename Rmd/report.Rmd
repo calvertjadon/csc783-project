@@ -769,7 +769,7 @@ p <- acc_day %>%
   geom_col() +
   labs(title = "Average Daily Accidents: Specific Holidays vs. Other Days", y = "Avg Accidents/Day", x = "Is Specific Holiday")
 
-f <- here("Rmd", "ieee", "figures", "acc-holiday.png")
+f <- here("Rmd", "ieee", "figures", "acc-holiday2.png")
 ggsave(f, p +
   theme_minimal(base_size = 7) ,
          width = 3.5, height = 2.5, units = "in")
@@ -778,16 +778,7 @@ knitr::plot_crop(f)
 ggplotly(p + theme_minimal())
 ```
 
-```{r eval=FALSE, include=FALSE}
-x_cor <- cor(acc_state_day %>% select(n_acc, mean_sev, mean_precip, mean_temp))
-corrplot(
-  x_cor,
-  type = "lower",
-  addCoef.col = "black",
-  tl.col = "black",
-  tl.srt = 45
-)
-
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 t.test(data = acc_state_day, mean_sev ~ precip_day)
 t.test(data = acc_state_day, mean_sev ~ hot_day)
 t.test(data = acc_state_day, mean_sev ~ cold_day)
