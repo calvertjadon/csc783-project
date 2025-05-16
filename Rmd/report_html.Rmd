@@ -39,6 +39,65 @@ library(scales)
 library(reshape2)
 ```
 
+```{r data-preparation, echo=FALSE, include=FALSE}
+# Load raw data
+if (!exists("accidents_raw")) {
+  #accidents <- read.csv("data/raw_data/US_Accidents_March23.csv")
+  accidents_raw <- read_csv(here("data", "raw_data", "US_Accidents_March23.csv"), lazy = FALSE)
+}
+
+acc <- accidents_raw
+
+# inspection
+head(acc)
+dim(acc)
+str(acc)
+summary(acc)
+colSums(is.na(acc))
+
+acc %>%
+  filter(`Temperature(F)` > 130 | `Temperature(F)` < -60) %>%
+  group_by(year(Start_Time)) %>%
+  summarize(n = n())
+
+# cleanup
+acc <- acc %>%
+  filter(between(`Temperature(F)`, -60, 130)) %>%
+  mutate(
+    date_ = date(Start_Time),
+    year = year(Start_Time),
+    month = month(Start_Time),
+    hour = hour(Start_Time),
+    precipitation = coalesce(`Precipitation(in)`, 0),
+    any_precip = precipitation > 0,
+    weather = coalesce(Weather_Condition, "Unknown"),
+    temperature = coalesce(`Temperature(F)`, mean(`Temperature(F)`, na.rm = TRUE)),
+    visibility = `Visibility(mi)`,
+    wind_chill = `Wind_Chill(F)`
+  )
+
+table(is.na(acc$`Precipitation(in)`))
+
+# augmentation
+state_lookup <- tibble(State  = state.abb, state_name  = str_to_title(state.name))
+
+acc <- acc %>%
+  mutate(
+    sevg = case_when(
+      Severity == 1 ~ "least severe",
+      Severity == 2 ~ "less severe",
+      Severity == 3 ~ "more severe",
+      TRUE ~ "most severe"
+    )
+  ) %>%
+  inner_join(state_lookup, by = "State")
+
+str(acc %>% select(State, state_name))
+
+# Make available as `accidents` for scripts
+accidents <- acc
+```
+
 # Introduction
 
 The primary objective of this project is to identify and visualize meaningful trends in US car accidents from 2016 to 2023. Our goal is to uncover when accidents occur most frequently, whether by time of day, day of the week, or month of the year, and determine if specific holidays are associated with increased accident rates. We also aim to explore geographic trends by identifying which states experience the highest and lowest number of accidents and assessing whether environmental factors such as weather, visibility, or road conditions contribute to accident severity. Additionally, we will examine long term trends in accident frequency to understand how they have changed over the years. By presenting our findings through a series of targeted visualizations, we hope to provide insights that could be valuable for public safety efforts, transportation planning, or future academic research.
@@ -63,52 +122,6 @@ Each row in the dataset represents a single traffic accident and contains inform
 The following variables were selected or engineered for this project: - `Severity`: Level of accident seriousness (1 = least severe, 4 = most severe) - `Start_Time`: Timestamp of when the accident began - `Temperature(F)`, `Precipitation(in)`, `Wind_Chill(F)`, `Visibility(mi)`: Weather-related variables - `Weather_Condition`: Categorical weather label (e.g., Clear, Rain, Fog) - `State`: Abbreviation of the U.S. state - `date_`, `hour`, `month`, `day_of_week`: Time-based features derived from `Start_Time` - `holiday_specific`: Boolean indicator for U.S. holidays (e.g., Memorial Day, Christmas)
 
 These features were used to explore patterns in accident frequency and severity across time, weather, and holidays.
-
-```{r, echo=FALSE}
-# -- Import and Clean Data --
-source(here("R", "prep.R"))
-if (!exists("accidents_raw")) {
-  accidents_raw <- read_csv(here("data", "raw_data", "US_Accidents_March23.csv"),
-    lazy = FALSE
-  )
-}
-
-acc <- accidents_raw
-
-# cleanup
-acc <- acc %>%
-  filter(between(`Temperature(F)`, -60, 130)) %>%
-  mutate(
-    date_ = date(Start_Time),
-    year_ = year(Start_Time),
-    month_ = month(Start_Time),
-    hour_ = hour(Start_Time),
-    `Precipitation(in)` = coalesce(`Precipitation(in)`, 0),
-    any_precip = `Precipitation(in)` > 0,
-    Weather_Condition = coalesce(Weather_Condition, "Unknown"),
-    `Temperature(F)` = coalesce(
-      `Temperature(F)`,
-      mean(`Temperature(F)`, na.rm = T)
-    )
-  )
-
-# augmentation
-state_lookup <- data.frame(
-  State = state.abb,
-  state_name = str_to_title(state.name)
-)
-
-acc <- acc %>%
-  mutate(
-    sevg = case_when(
-      Severity == 1 ~ "least severe",
-      Severity == 2 ~ "less severe",
-      Severity == 3 ~ "more severe",
-      TRUE ~ "most severe"
-    )
-  ) %>%
-  inner_join(state_lookup, by = "State")
-```
 
 # Descriptive Analysis
 
@@ -646,3 +659,24 @@ acc_day %>%
   labs(title = "Average Daily Accidents: Specific Holidays vs. Other Days", y = "Avg Accidents/Day", x = "Is Specific Holiday")
 ```
 
+# Discussion
+
+The results of this analysis confirm several intuitive but important insights into traffic accident patterns in the United States. Time-based trends clearly reveal that accidents peak during weekday rush hours and are far less frequent during early morning hours and weekends. December's heightened accident volume suggests seasonal effects such as holiday travel and poor weather conditions play a significant role.
+
+Environmental factors such as temperature and precipitation demonstrated limited but interesting relationships with accident severity and frequency. While accidents were least common during extreme temperatures, those that occurred under these conditions tended to be more severe. Weather conditions like “Overcast” and “Scattered Clouds” were associated with higher average severity, possibly reflecting poor visibility or driver overconfidence in seemingly stable weather.
+
+Geographic trends uncovered population-adjusted hotspots for traffic incidents. States like South Carolina and Louisiana exhibited the highest accident rates per 100,000 residents, yet they were not among the worst in terms of average severity. This distinction could point to differences in reporting practices, infrastructure quality, or emergency response times across states.
+
+Finally, our holiday-based t-tests revealed that although fewer accidents occur on holidays, those that do are not significantly more severe. This suggests that reduced traffic volume likely offsets any increased risk associated with holiday distractions or celebrations.
+
+# Conclusion
+
+This exploratory data visualization and statistical analysis of U.S. traffic accidents from 2016 to 2023 provides a multi-dimensional view of when, where, and under what conditions accidents are most likely to occur. 
+
+The findings emphasize:
+- The importance of targeted safety efforts during weekday commute hours
+- Seasonal and weather-related influences on accident frequency and severity
+- Geographic disparities in accident rates that may warrant region-specific interventions
+- That holidays may not be inherently more dangerous, but still merit focused traffic safety messaging due to lower yet impactful accident rates
+
+This project underscores the power of combining time-series analysis, geospatial mapping, and statistical testing to support data-driven transportation planning and public safety strategy. Future research could expand by incorporating traffic volume data, urban/rural context, or vehicle-specific information to deepen these insights.
